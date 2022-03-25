@@ -2,11 +2,8 @@
 from .noise_gen import CGMNoise
 import pandas as pd
 import logging
-import pkg_resources
 
 logger = logging.getLogger(__name__)
-SENSOR_PARA_FILE = pkg_resources.resource_filename(
-    'simglucose', 'params/sensor_params.csv')
 
 
 class CGMSensor(object):
@@ -18,8 +15,8 @@ class CGMSensor(object):
         self._last_CGM = 0
 
     @classmethod
-    def withName(cls, name, **kwargs):
-        sensor_params = pd.read_csv(SENSOR_PARA_FILE)
+    def withName(cls, name, sensor_para_file, **kwargs):
+        sensor_params = pd.read_csv(sensor_para_file)
         params = sensor_params.loc[sensor_params.Name == name].squeeze()
         return cls(params, **kwargs)
 

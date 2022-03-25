@@ -1,10 +1,7 @@
 import pandas as pd
-import pkg_resources
 import logging
 import numpy as np
 
-INSULIN_PUMP_PARA_FILE = pkg_resources.resource_filename(
-    'simglucose', 'params/pump_params.csv')
 logger = logging.getLogger(__name__)
 
 
@@ -15,8 +12,8 @@ class InsulinPump(object):
         self._params = params
 
     @classmethod
-    def withName(cls, name):
-        pump_params = pd.read_csv(INSULIN_PUMP_PARA_FILE)
+    def withName(cls, name, insulin_pump_para_file):
+        pump_params = pd.read_csv(insulin_pump_para_file)
         params = pump_params.loc[pump_params.Name == name].squeeze()
         return cls(params)
 

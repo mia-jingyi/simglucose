@@ -4,15 +4,11 @@ from scipy.integrate import ode
 import pandas as pd
 from collections import namedtuple
 import logging
-import pkg_resources
 
 logger = logging.getLogger(__name__)
 
 Action = namedtuple("patient_action", ['CHO', 'insulin'])
 Observation = namedtuple("observation", ['Gsub'])
-
-PATIENT_PARA_FILE = pkg_resources.resource_filename(
-    'simglucose', 'params/vpatient_params.csv')
 
 
 class T1DPatient(Patient):
@@ -42,7 +38,7 @@ class T1DPatient(Patient):
         self.reset()
 
     @classmethod
-    def withID(cls, patient_id, **kwargs):
+    def withID(cls, patient_id, patient_para_file, **kwargs):
         '''
         Construct patient by patient_id
         id are integers from 1 to 30.
@@ -50,12 +46,12 @@ class T1DPatient(Patient):
         11 - 20: adult#001 - adult#001
         21 - 30: child#001 - child#010
         '''
-        patient_params = pd.read_csv(PATIENT_PARA_FILE)
+        patient_params = pd.read_csv(patient_para_file)
         params = patient_params.iloc[patient_id - 1, :]
         return cls(params, **kwargs)
 
     @classmethod
-    def withName(cls, name, **kwargs):
+    def withName(cls, name, patient_para_file, **kwargs):
         '''
         Construct patient by name.
         Names can be
@@ -63,7 +59,7 @@ class T1DPatient(Patient):
             adult#001 - adult#001
             child#001 - child#010
         '''
-        patient_params = pd.read_csv(PATIENT_PARA_FILE)
+        patient_params = pd.read_csv(patient_para_file)
         params = patient_params.loc[patient_params.Name == name].squeeze()
         return cls(params, **kwargs)
 
