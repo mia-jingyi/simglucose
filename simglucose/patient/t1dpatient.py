@@ -3,11 +3,17 @@ import numpy as np
 from scipy.integrate import ode
 import pandas as pd
 from collections import namedtuple
+from typing import NamedTuple
 import logging
 
 logger = logging.getLogger(__name__)
 
-Action = namedtuple("patient_action", ['CHO', 'insulin'])
+
+class Action(NamedTuple):  # This plays nicer with serialization
+    CHO: float
+    insulin: float
+
+
 Observation = namedtuple("observation", ['Gsub'])
 
 
