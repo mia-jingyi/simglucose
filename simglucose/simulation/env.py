@@ -93,7 +93,8 @@ class T1DSimEnv(object):
         window_size = int(60 / self.sample_time)
         BG_last_hour = self.CGM_hist[-window_size:]
         reward = reward_fun(BG_last_hour)
-        done = BG < 70 or BG > 350
+        # done = BG < 70 or BG > 350
+        done = BG < 40 or BG > 350
         obs = Observation(CGM=CGM)
 
         return Step(observation=obs,
