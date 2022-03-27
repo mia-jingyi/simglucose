@@ -129,8 +129,8 @@ class T1DSimEnv(object):
         self.LBGI_hist = [LBGI]
         self.HBGI_hist = [HBGI]
         self.magni_risk_hist = [magni_risk]
-        self.CHO_hist = []
-        self.insulin_hist = []
+        self.CHO_hist = [0]
+        self.insulin_hist = [0]
 
     def reset(self):
         self.patient.reset()
