@@ -1,5 +1,5 @@
 from simglucose.patient.t1dpatient import Action
-from simglucose.analysis.risk import risk_index
+from simglucose.analysis.risk import risk_index, magni_risk_index
 import pandas as pd
 from datetime import timedelta
 import logging
@@ -75,7 +75,7 @@ class T1DSimEnv(object):
         # Compute risk index
         horizon = 1
         LBGI, HBGI, risk = risk_index([BG], horizon)
-
+        magni_risk = magni_risk_index([BG])
         # Record current action
         self.CHO_hist.append(CHO)
         self.insulin_hist.append(insulin)
@@ -87,6 +87,7 @@ class T1DSimEnv(object):
         self.risk_hist.append(risk)
         self.LBGI_hist.append(LBGI)
         self.HBGI_hist.append(HBGI)
+        self.magni_risk_hist.append(magni_risk)
 
         # Compute reward, and decide whether game is over
         window_size = int(60 / self.sample_time)
@@ -118,6 +119,7 @@ class T1DSimEnv(object):
         BG = self.patient.observation.Gsub
         horizon = 1
         LBGI, HBGI, risk = risk_index([BG], horizon)
+        magni_risk = magni_risk_index([BG])
         CGM = self.sensor.measure(self.patient)
         self.time_hist = [self.scenario.start_time]
         self.BG_hist = [BG]
@@ -125,6 +127,7 @@ class T1DSimEnv(object):
         self.risk_hist = [risk]
         self.LBGI_hist = [LBGI]
         self.HBGI_hist = [HBGI]
+        self.magni_risk_hist = [magni_risk]
         self.CHO_hist = []
         self.insulin_hist = []
 
@@ -171,5 +174,6 @@ class T1DSimEnv(object):
         df['LBGI'] = pd.Series(self.LBGI_hist)
         df['HBGI'] = pd.Series(self.HBGI_hist)
         df['Risk'] = pd.Series(self.risk_hist)
+        df['Magni_Risk'] = pd.Series(self.magni_risk_hist)
         df = df.set_index('Time')
         return df
