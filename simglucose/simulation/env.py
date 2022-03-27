@@ -24,15 +24,6 @@ Observation = namedtuple('Observation', ['CGM'])
 logger = logging.getLogger(__name__)
 
 
-def risk_diff(BG_last_hour):
-    if len(BG_last_hour) < 2:
-        return 0
-    else:
-        _, _, risk_current = risk_index([BG_last_hour[-1]], 1)
-        _, _, risk_prev = risk_index([BG_last_hour[-2]], 1)
-        return risk_prev - risk_current
-
-
 class T1DSimEnv(object):
     def __init__(self, patient, sensor, pump, scenario):
         self.patient = patient
@@ -63,7 +54,7 @@ class T1DSimEnv(object):
 
         return CHO, insulin, BG, CGM
 
-    def step(self, action, reward_fun=risk_diff):
+    def step(self, action, reward_fun):
         '''
         action is a namedtuple with keys: basal, bolus
         '''
