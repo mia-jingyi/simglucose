@@ -132,11 +132,14 @@ class T1DSimEnv(object):
         self.CHO_hist = [0]
         self.insulin_hist = [0]
 
-    def reset(self):
+    def reset(self, sensor_seed_change=True, incr_day=0):
         self.patient.reset()
         self.sensor.reset()
+        if sensor_seed_change:
+            self.sensor.seed = self.sensor.seed + 1
         self.pump.reset()
         self.scenario.reset()
+        self.scenario.start_time = self.scenario.start_time + timedelta(days=incr_day)
         self._reset()
         CGM = self.sensor.measure(self.patient)
         obs = Observation(CGM=CGM)
