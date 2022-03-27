@@ -25,11 +25,12 @@ logger = logging.getLogger(__name__)
 
 
 class T1DSimEnv(object):
-    def __init__(self, patient, sensor, pump, scenario):
+    def __init__(self, patient, sensor, pump, scenario, sample_time=None):
         self.patient = patient
         self.sensor = sensor
         self.pump = pump
         self.scenario = scenario
+        self.perm_sample_time = sample_time
         self._reset()
 
     @property
@@ -108,7 +109,10 @@ class T1DSimEnv(object):
                     risk=risk)
 
     def _reset(self):
-        self.sample_time = self.sensor.sample_time
+        if self.perm_sample_time is None:
+            self.sample_time = self.sensor.sample_time
+        else:
+            self.sample_time = self.perm_sample_time
         self.viewer = None
 
         BG = self.patient.observation.Gsub
