@@ -1,8 +1,11 @@
 from simglucose.patient.t1dpatient import Action
 from simglucose.analysis.risk import risk_index, magni_risk_index
+import numpy as np
 import pandas as pd
+import torch
 from datetime import timedelta
 import logging
+import joblib
 from collections import namedtuple
 from simglucose.simulation.rendering import Viewer
 
@@ -25,12 +28,21 @@ logger = logging.getLogger(__name__)
 
 
 class T1DSimEnv(object):
-    def __init__(self, patient, sensor, pump, scenario, sample_time=None):
+    def __init__(self, patient, sensor, pump, scenario, sample_time=None, model=None, model_device=None, source_dir=None):
         self.patient = patient
+        self.state = self.patient.state  # caching for model usage
+        norm_params_full = joblib.load('{}/simglucose/simglucose/params/adult_001_std_params.pkl'.format(source_dir))
+        # the above PKL file defines mu and sigma for a 17D vector (13D ground truth state + CHO + BG + CGM + insulin)
+        new_mask = [True for _ in range(13)] + [True, False, False, True]  # throwing out BG and CGM
+        norm_params_new = {'mu': norm_params_full['mu'][new_mask],
+                           'std': norm_params_full['sigma'][new_mask]}
+        self.norm_params = norm_params_new
         self.sensor = sensor
         self.pump = pump
         self.scenario = scenario
         self.perm_sample_time = sample_time
+        self.model = model
+        self.model_device = model_device
         self._reset()
 
     @property
@@ -63,14 +75,42 @@ class T1DSimEnv(object):
         insulin = 0.0
         BG = 0.0
         CGM = 0.0
-
-        for _ in range(int(self.sample_time)):
-            # Compute moving average as the sample measurements
-            tmp_CHO, tmp_insulin, tmp_BG, tmp_CGM = self.mini_step(action)
-            CHO += tmp_CHO / self.sample_time
-            insulin += tmp_insulin / self.sample_time
-            BG += tmp_BG / self.sample_time
-            CGM += tmp_CGM / self.sample_time
+        if self.model is not None:
+            # Calculate CHO/insulin
+            for _ in range(int(self.sample_time)):
+                patient_action = self.scenario.get_action(self.time)
+                tmp_basal = self.pump.basal(action.basal)
+                tmp_bolus = self.pump.bolus(action.bolus)
+                tmp_insulin = tmp_basal + tmp_bolus
+                tmp_CHO = patient_action.meal
+                CHO += tmp_CHO / self.sample_time  # the sum is the CHO intake per minute
+                insulin += tmp_insulin / self.sample_time
+                self.patient._t += 1  # copying mini-step of 1 minute
+            # Make state
+            state = np.concatenate(([self.state, [CHO, insulin]]))
+            # standard scaling because there are no outliers.
+            norm_state = ((state-self.norm_params['mu'])/self.norm_params['std']).reshape(1, -1)
+            tensor_state = torch.from_numpy(norm_state).float().to(self.model_device)
+            # feed through model
+            with torch.no_grad():
+                next_state_tensor = self.model(tensor_state)
+                if self.model_device != 'cpu':
+                    next_state_tensor = next_state_tensor.cpu()
+                next_state_norm = next_state_tensor.numpy().reshape(-1)
+            next_state = (next_state_norm*self.norm_params['std'][:13])+self.norm_params['mu'][:13]
+            self.state = next_state
+            # calculate BG and CGM
+            BG = self.state[12]/self.patient._params.Vg  # state[12] = subcutaneous glucose
+            self.patient._state[12] = self.state[12]  # getting observation correct for CGM measurement
+            CGM = self.sensor.measure(self.patient)
+        else:
+            for _ in range(int(self.sample_time)):
+                # Compute moving average as the sample measurements
+                tmp_CHO, tmp_insulin, tmp_BG, tmp_CGM = self.mini_step(action)
+                CHO += tmp_CHO / self.sample_time
+                insulin += tmp_insulin / self.sample_time
+                BG += tmp_BG / self.sample_time
+                CGM += tmp_CGM / self.sample_time
 
         # Compute risk index
         horizon = 1
