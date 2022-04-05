@@ -122,6 +122,21 @@ class T1DPatient(Patient):
 
     @staticmethod
     def model(t, x, action, params, last_Qsto, last_foodtaken):
+        # finding state labels
+        # x_0: stomach solid
+        # x_1: stomach liquid
+        # x_2: gut
+        # x_3: plasma glucose
+        # x_4: tissue glucose
+        # x_5: plasma insulin
+        # x_6: insulin action on glucose utilization, X(t)
+        # x_7: insulin action on glucose production, I'(t)
+        # x_8: delayed insulin action on liver, X^L
+        # x_9: liver insulin
+        # x_10: subcutaneous insulin compartment 1, I_sc1
+        # x_11: subcutaneous insulin compartment 2, I_sc2
+        # x_12: subcutaneous glucose
+
         dxdt = np.zeros(13)
         d = action.CHO * 1000  # g -> mg
         insulin = action.insulin * 6000 / params.BW  # U/min -> pmol/kg/min
@@ -393,6 +408,21 @@ class T1DPatientNew(Patient):
 
     @staticmethod
     def model(t, x, action, params, last_Qsto, last_foodtaken):
+        # finding state labels
+        # x_0: stomach solid
+        # x_1: stomach liquid
+        # x_2: gut
+        # x_3: plasma glucose
+        # x_4: tissue glucose
+        # x_5: plasma insulin
+        # x_6: insulin action on glucose utilization, X(t)
+        # x_7: insulin action on glucose production, I'(t)
+        # x_8: delayed insulin action on liver, X^L
+        # x_9: liver insulin
+        # x_10: subcutaneous insulin compartment 1, I_sc1
+        # x_11: subcutaneous insulin compartment 2, I_sc2
+        # x_12: subcutaneous glucose
+
         dxdt = np.zeros(13)
         d = action.CHO * 1000  # g -> mg
         insulin = action.insulin * 6000 / params.BW  # U/min -> pmol/kg/min
