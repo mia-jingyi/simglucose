@@ -31,7 +31,7 @@ class T1DSimEnv(object):
     def __init__(self, patient, sensor, pump, scenario, sample_time=None, model=None, model_device=None, source_dir=None):
         self.patient = patient
         self.state = self.patient.state  # caching for model usage
-        norm_params_full = joblib.load('{}/simglucose/simglucose/params/adult_001_std_params.pkl'.format(source_dir))
+        norm_params_full = joblib.load('{}/simglucose/params/adult_001_std_params.pkl'.format(source_dir))
         # the above PKL file defines mu and sigma for a 17D vector (13D ground truth state + CHO + BG + CGM + insulin)
         new_mask = [True for _ in range(13)] + [True, False, False, True]  # throwing out BG and CGM
         norm_params_new = {'mu': norm_params_full['mu'][new_mask],
