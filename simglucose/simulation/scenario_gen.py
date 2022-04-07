@@ -362,7 +362,7 @@ class RandomBalancedScenario(Scenario):
                 tmeal = np.round(truncnorm.rvs(a=(tlb - tbar) / tsd,
                                                b=(tub - tbar) / tsd,
                                                loc=tbar,
-                                               scale=std,
+                                               scale=tsd,
                                                random_state=self.random_gen))
                 ameal = max(round(self.random_gen.normal(mbar, msd)), 0)
                 if self.deterministic_meal_time:
