@@ -130,9 +130,10 @@ class T1DSimEnv(object):
         self.magni_risk_hist.append(magni_risk)
 
         # Compute reward, and decide whether game is over
-        window_size = int(60 / self.sample_time)
-        BG_last_hour = self.CGM_hist[-window_size:]
-        reward = reward_fun(BG_last_hour)
+        # window_size = int(60 / self.sample_time)
+        # BG_last_hour = self.CGM_hist[-window_size:]
+        reward = reward_fun(bg_hist=self.BG_hist, cgm_hist=self.CGM_hist, insulin_hist=self.insulin_hist,
+                            risk_hist=self.risk_hist, magni_risk_hist=self.magni_risk_hist)
         # done = BG < 70 or BG > 350
         done = BG < 40 or BG > 350
         obs = Observation(CGM=CGM)
