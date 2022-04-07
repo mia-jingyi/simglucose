@@ -26,7 +26,7 @@ class DeepSACT1DEnv(gym.Env):
         reward_fun: reward function.
         patient_name: string, name of a specific patient, default is adolescent#001.
         seeds: dictionary, storing seeds for numpy, sensor, scenario and patient.
-        n_hours: integer, simulation hours.
+        n_hours: integer, window of observation to provide temporal context.
         norm: boolean. If true, state is normalized.
         time: boolean. If true, add history of sin/cos normalized time to the state.
         weekly: boolean. If true, create weekend scenario for weekends and include binary weekend flag in the state.
@@ -110,11 +110,10 @@ class DeepSACT1DEnv(gym.Env):
         if seeds is None:
             seed_list = self._seed()
             seeds = {'numpy': seed_list[0], 'sensor': seed_list[1], 'scenario': seed_list[2], 'patient': seed_list[3]}
-        np.random.seed(seeds['numpy'])
         self.seeds = seeds
         self.sample_time = 5
         self.day = int(1440 / self.sample_time)  # number of samples per day
-        self.state_hist = int((n_hours * 60) / self.sample_time)  # number of samples during simulation
+        self.state_hist = int((n_hours * 60) / self.sample_time)  # number of samples in the observation space
         self.norm = norm
         self.time = time
         self.weekly = weekly
@@ -370,7 +369,7 @@ class DeepSACT1DEnv(gym.Env):
         return bg, euglycemic, hypo, hyper, ins
 
     def is_done(self):
-        return self.env.BG_hist[-1] > self.reset_lim['lower_lim'] or self.env.BG_hist[-1] > self.reset_lim['upper_lim']
+        return self.env.BG_hist[-1] < self.reset_lim['lower_lim'] or self.env.BG_hist[-1] > self.reset_lim['upper_lim']
 
     def increment_seed(self, incr=1):
         self.seeds['numpy'] += incr
@@ -452,7 +451,7 @@ class DeepSACT1DEnv(gym.Env):
         self.pid = pid.PID(setpoint=pid_params.setpoint,
                            kp=pid_params.kp, ki=pid_params.ki, kd=pid_params.kd)
         patient = T1DPatientNew.withName(patient_name, self.patient_para_file,
-                                         random_init_bg=True, seed=self.seeds['patient'])
+                                         random_init_bg=False, seed=self.seeds['patient'])
         sensor = CGMSensor.withName('Dexcom', self.sensor_para_file, seed=self.seeds['sensor'])
         if self.time_std is None:
             scenario = RandomBalancedScenario(bw=self.bw, start_time=self.start_time, seed=self.seeds['scenario'],
