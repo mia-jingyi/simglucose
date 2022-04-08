@@ -171,7 +171,7 @@ class SemiRandomScenario(Scenario):
 
 class RandomBalancedScenario(Scenario):
     def __init__(self, bw, start_time=None, seed=None, weekly=False, kind=None,
-                 harrison_benedict=False, restricted=False, unrealistic=False, meal_duration=1,
+                 harrison_benedict=False, restricted=False, unrealistic=False,
                  deterministic_meal_size=False, deterministic_meal_time=False, deterministic_meal_occurrence=False):
         Scenario.__init__(self, start_time=start_time)
         self.kind = kind
@@ -184,7 +184,6 @@ class RandomBalancedScenario(Scenario):
         self.restricted = restricted  # take precident over harrison_benedict
         self.harrison_benedict = harrison_benedict
         self.unrealistic = unrealistic
-        self.meal_duration = meal_duration
         self.seed = seed
 
     def get_action(self, t):
@@ -211,10 +210,10 @@ class RandomBalancedScenario(Scenario):
 
         t_min = np.floor(t_sec / 60.0)
 
-        # going to cancel overlapping meals by going with first meal in range
-        for idx, time in enumerate(self.scenario['meal']['time']):
-            if t_min >= time and t_min < time + self.meal_duration:
-                return Action(meal=self.scenario['meal']['amount'][idx]/self.meal_duration)
+        if t_min in self.scenario['meal']['time']:
+            logger.info('Time for meal!')
+            idx = self.scenario['meal']['time'].index(t_min)
+            return Action(meal=self.scenario['meal']['amount'][idx])
         else:
             return Action(meal=0)
 
@@ -452,13 +451,12 @@ class CustomBalancedScenario(Scenario):
 
 class SemiRandomBalancedScenario(Scenario):
     def __init__(self, bw, start_time=None, seed=None, time_std_multiplier=1,
-                 kind=None, harrison_benedict=False, meal_duration=1):
+                 kind=None, harrison_benedict=False):
         Scenario.__init__(self, start_time=start_time)
         self.time_std_multiplier = time_std_multiplier
         self.bw = bw
         self.kind = kind
         self.harrison_benedict = harrison_benedict
-        self.meal_duration = meal_duration
         self.seed = seed
 
     def get_action(self, t):
@@ -475,10 +473,10 @@ class SemiRandomBalancedScenario(Scenario):
 
         t_min = np.floor(t_sec / 60.0)
 
-        # going to cancel overlapping meals by going with first meal in range
-        for idx, time in enumerate(self.scenario['meal']['time']):
-            if t_min >= time and t_min < time + self.meal_duration:
-                return Action(meal=self.scenario['meal']['amount'][idx] / self.meal_duration)
+        if t_min in self.scenario['meal']['time']:
+            logger.info('Time for meal!')
+            idx = self.scenario['meal']['time'].index(t_min)
+            return Action(meal=self.scenario['meal']['amount'][idx])
         else:
             return Action(meal=0)
 
