@@ -7,8 +7,8 @@ from simglucose.actuator.pump import InsulinPump
 from simglucose.simulation.scenario_gen import (SemiRandomBalancedScenario, RandomBalancedScenario,
                                                 CustomBalancedScenario)
 from simglucose.controller.base import Action
+from simglucose.controller.pid_ctrller import PIDController
 from simglucose.analysis.risk import magni_risk_index
-from rl import pid
 
 import pandas as pd
 import numpy as np
@@ -43,7 +43,6 @@ class DeepSACT1DEnv(gym.Env):
                       otherwise it's a scaling factor by which the action is multiplied.
         basal_scaling: integer, a scale parameter used when action_scale is "basal".
         meal_announce: None or integer. If integer, future meal amount and meal time are added to the state.
-        meal_duration: integer, specifying the meal duration in RandomBalancedScenario and SemiRandomBalancedScenario.
         residual_basal: boolean. If true, add patient_specific basal insulin rate to the action.
         residual_bolus: boolean. If true, add meal bolus to the action when there is an upcoming meal.
         carb_miss_prob: integer, indicating the deviation of the actual carb intake from the meal amount
@@ -86,7 +85,7 @@ class DeepSACT1DEnv(gym.Env):
     def __init__(self, reward_fun, patient_name=None, seeds=None, n_hours=24, norm=False, time=False,
                  weekly=False, meal=False, fake_real=False, gt=False, fake_gt=False, suppress_carbs=False,
                  limited_gt=False, action_cap=0.1, action_bias=0, action_scale=1, basal_scaling=43.2,
-                 meal_announce=None, meal_duration=1, residual_basal=False, residual_bolus=False,
+                 meal_announce=None, residual_basal=False, residual_bolus=False,
                  carb_miss_prob=0, carb_error_std=0, residual_PID=False, rolling_insulin_lim=None, reset_lim=None,
                  termination_penalty=None, reward_bias=0, load=False, use_old_patient_env=False,
                  use_model=False, model=None, model_device='cpu', use_pid_load=False, hist_init=False,
@@ -129,7 +128,6 @@ class DeepSACT1DEnv(gym.Env):
         self.action_scale = action_scale
         self.basal_scaling = basal_scaling
         self.meal_announce = meal_announce
-        self.meal_duration = meal_duration
         self.residual_basal = residual_basal
         self.residual_bolus = residual_bolus
         self.carb_miss_prob = carb_miss_prob
@@ -144,7 +142,7 @@ class DeepSACT1DEnv(gym.Env):
         self.termination_penalty = termination_penalty
         self.reward_bias = reward_bias
         self.target = 140
-        self.low_lim = 70  # Matching BB controller
+        self.low_lim = 140  # Matching BB controller
         self.cooldown = 180  # corresponding to 3 hrs
         self.last_cf = self.cooldown + 1
         self.load = load
@@ -355,6 +353,8 @@ class DeepSACT1DEnv(gym.Env):
         return np.stack(return_arr).flatten()
 
     def avg_risk(self):
+        # ignore the first 288 samples because those samples were initialized with pid or exsiting pkl file
+        # both initialization method generates 288 samples (1 day)
         return np.mean(self.env.risk_hist[max(self.state_hist, 288):])
 
     def avg_magni_risk(self):
@@ -407,8 +407,7 @@ class DeepSACT1DEnv(gym.Env):
                     self.env.scenario = SemiRandomBalancedScenario(bw=self.bw, start_time=self.start_time,
                                                                    seed=self.seeds['scenario'],
                                                                    time_std_multiplier=self.time_std, kind=self.kind,
-                                                                   harrison_benedict=self.harrison_benedict,
-                                                                   meal_duration=self.meal_duration)
+                                                                   harrison_benedict=self.harrison_benedict)
                 self.env.sensor.seed = self.seeds['sensor']
                 self.env.scenario.seed = self.seeds['scenario']
                 self.env.scenario.day = 0
@@ -448,8 +447,7 @@ class DeepSACT1DEnv(gym.Env):
         if patient_name not in pid_df.name.values:
             raise ValueError('{} not in PID csv'.format(patient_name))
         pid_params = pid_df.loc[pid_df.name == patient_name].squeeze()
-        self.pid = pid.PID(setpoint=pid_params.setpoint,
-                           kp=pid_params.kp, ki=pid_params.ki, kd=pid_params.kd)
+        self.pid = PIDController(P=pid_params.kp, I=pid_params.ki, D=pid_params.kd, target=pid_params.setpoint)
         patient = T1DPatientNew.withName(patient_name, self.patient_para_file,
                                          random_init_bg=False, seed=self.seeds['patient'])
         sensor = CGMSensor.withName('Dexcom', self.sensor_para_file, seed=self.seeds['sensor'])
@@ -459,16 +457,14 @@ class DeepSACT1DEnv(gym.Env):
                                               harrison_benedict=self.harrison_benedict, unrealistic=self.unrealistic,
                                               deterministic_meal_size=self.deterministic_meal_size,
                                               deterministic_meal_time=self.deterministic_meal_time,
-                                              deterministic_meal_occurrence=self.deterministic_meal_occurrence,
-                                              meal_duration=self.meal_duration)
+                                              deterministic_meal_occurrence=self.deterministic_meal_occurrence)
         elif self.use_custom_meal:
             scenario = CustomBalancedScenario(bw=self.bw, start_time=self.start_time, seed=self.seeds['scenario'],
                                               num_meals=self.custom_meal_num, size_mult=self.custom_meal_size)
         else:
             scenario = SemiRandomBalancedScenario(bw=self.bw, start_time=self.start_time, seed=self.seeds['scenario'],
                                                   time_std_multiplier=self.time_std, kind=self.kind,
-                                                  harrison_benedict=self.harrison_benedict,
-                                                  meal_duration=self.meal_duration)
+                                                  harrison_benedict=self.harrison_benedict)
         pump = InsulinPump.withName('Insulet', self.insulin_pump_para_file)
         self.env = _T1DSimEnv(patient=patient,
                               sensor=sensor,
@@ -476,13 +472,13 @@ class DeepSACT1DEnv(gym.Env):
                               scenario=scenario,
                               sample_time=self.sample_time, source_dir=self.source_dir)
         if self.hist_init:
-            self.env_init_dict = joblib.load("{}/{}_date.pkl".format(self.pid_env_path, self.patient_name))
+            self.env_init_dict = joblib.load("{}/{}_data.pkl".format(self.pid_env_path, self.patient_name))
             # The above PKL file is a dictionary with the following keys:
             # "state", "time", "time_hist", "bg_hist", "cgm_hist", "risk_hist", "lbgi_hist", "hbgi_hist",
             # "cho_hist", "insulin_hist".
-            self.env_init_dict['magni_risk_index'] = []
+            self.env_init_dict['magni_risk_hist'] = []
             for bg in self.env_init_dict['bg_hist']:
-                self.env_init_dict['magni_risk_index'].append(magni_risk_index[bg])
+                self.env_init_dict['magni_risk_hist'].append(magni_risk_index([bg]))
             self._hist_init()
 
     def _hist_init(self):
