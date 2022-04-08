@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import logging
 from collections import namedtuple
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 CONTROL_QUEST = 'simglucose/params/Quest.csv'
@@ -84,7 +85,7 @@ class BBController(Controller):
 
 class ManualBBController(Controller):
     def __init__(self, target, cr, cf, basal, sample_rate=5, use_cf=True, use_bol=True, cooldown=0,
-                 use_low_lim=False, low_lim=70):
+                 corrected=True, use_low_lim=False, low_lim=70):
         super().__init__(self)
         self.target = target
         self.orig_cr = self.cr = cr
@@ -95,7 +96,8 @@ class ManualBBController(Controller):
         self.use_bol = use_bol
         self.cooldown = cooldown
         self.last_cf = np.inf
-        self.use_low_lim = low_lim
+        self.corrected = corrected
+        self.use_low_lim = use_low_lim
         self.low_lim = low_lim
 
     def increment(self, cr_incr=0, cf_incr=0, basal_incr=0):
@@ -111,7 +113,11 @@ class ManualBBController(Controller):
 
     def manual_bb_policy(self, carbs, glucose, log=False):
         if carbs > 0:
-            carb_correct = carbs / self.cr
+            if self.corrected:
+                carb_correct = carbs / self.cr
+            else:
+                # assuming carbs are already multiplied by sampling rate
+                carb_correct = (carbs/self.sample_rate) / self.cr
             hyper_correct = (glucose > self.target) * (glucose - self.target) / self.cf
             hypo_correct = (glucose < self.low_lim) * (self.low_lim - glucose) / self.cf
             bolus = 0
@@ -147,3 +153,30 @@ class ManualBBController(Controller):
         self.cf = self.orig_cf
         self.basal = self.orig_basal
         self.last_cf = np.inf
+
+
+def bb_test(bbc, env, n_days, seed, full_save=False):
+    env.seeds['sensor'] = seed
+    env.seeds['scenario'] = seed
+    env.seeds['patient'] = seed
+    env.reset()
+    full_patient_state = []
+    carb_error_mean = 0
+    carb_error_std = 0.2
+    carb_miss_prob = 0.05
+    action = bbc.manual_bb_policy(carbs=0, glucose=140)
+    for _ in tqdm(range(n_days*288)):
+        obs, reward, done, info = env.step(action=action.basal+action.bolus)
+        bg = env.env.CGM_hist[-1]
+        carbs = info['meal']
+        if np.random.uniform() < carb_miss_prob:
+            carbs = 0
+        err = np.random.normal(carb_error_mean, carb_error_std)
+        carbs = carbs + carbs * err
+        action = bbc.manual_bb_policy(carbs=carbs, glucose=bg)
+        full_patient_state.append(info['patient_state'])
+    full_patient_state = np.stack(full_patient_state)
+    if full_save:
+        return env.env.show_history(), full_patient_state
+    else:
+        return {'hist': env.env.show_history()[288:]}
