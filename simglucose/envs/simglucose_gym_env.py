@@ -99,7 +99,7 @@ class DeepSACT1DEnv(gym.Env):
         """
         self.source_dir = source_dir
         self.patient_para_file = '{}/simglucose/params/vpatient_params.csv'.format(self.source_dir)
-        self.control_quest = '{}/simglucose/params/Quest.csv'.format(self.source_dir)
+        self.control_quest = '{}/simglucose/params/Quest2.csv'.format(self.source_dir)
         self.pid_para_file = '{}/simglucose/params/pid_params.csv'.format(self.source_dir)
         self.pid_env_path = '{}/simglucose/params'.format(self.source_dir)
         self.sensor_para_file = '{}/simglucose/params/sensor_params.csv'.format(self.source_dir)
