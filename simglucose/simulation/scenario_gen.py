@@ -272,7 +272,7 @@ class RandomBalancedScenario(Scenario):
         amount_mu = np.array([mu_b, mu_s, mu_l, mu_s, mu_d, mu_s])
         amount_sigma = amount_mu * 0.15
 
-        for p, tlb, tup, tbar, tsd, mbar, msd in zip(
+        for p, tlb, tub, tbar, tsd, mbar, msd in zip(
                 prob, time_lb, time_ub, time_mu, time_sigma, amount_mu, amount_sigma):
             if self.random_gen.rand() < p:
                 tmeal = np.round(truncnorm.rvs(a=(tlb - tbar) / tsd,
@@ -281,6 +281,8 @@ class RandomBalancedScenario(Scenario):
                                                scale=tsd,
                                                random_state=self.random_gen))
                 scenario['meal']['time'].append(tmeal)
+                ameal = np.round(self.random_gen.normal(mbar, msd))
+                scenario['meal']['amount'].append(ameal)
         return scenario
 
     def create_scenario_unrealistic(self):
