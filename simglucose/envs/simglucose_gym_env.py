@@ -67,6 +67,7 @@ class DeepSACT1DEnv(gym.Env):
                   balanced scenario.
         harrison_benedict: boolean. If true, use the harrison_benedict meal schedule.
         restricted_carb: boolean. If true, create restricted scenario defined in RandomBalancedScenario.
+        meal_duration: integer, specifying the meal duration in RandomBalancedScenario and SemiRandomBalancedScenario.
         unrealistic:boolean. If true, create unrealistic scenario defined in RandomBalancedScenario.
         deterministic_meal_size: boolean. If true, meal size is deterministic in the normal scenario defined in
                                  RandomBalancedScenario.
@@ -89,10 +90,10 @@ class DeepSACT1DEnv(gym.Env):
                  carb_miss_prob=0, carb_error_std=0, residual_PID=False, rolling_insulin_lim=None, reset_lim=None,
                  termination_penalty=None, reward_bias=0, load=False, use_old_patient_env=False,
                  use_model=False, model=None, model_device='cpu', use_pid_load=False, hist_init=False,
-                 start_date=None, time_std=None, harrison_benedict=False, restricted_carb=False, unrealistic=False,
-                 deterministic_meal_size=False, deterministic_meal_time=False, deterministic_meal_occurrence=False,
-                 use_custom_meal=False, custom_meal_num=3, custom_meal_size=1, update_seed_on_reset=False,
-                 source_dir=None, **kwargs):
+                 start_date=None, time_std=None, harrison_benedict=False, restricted_carb=False, meal_duration=1,
+                 unrealistic=False, deterministic_meal_size=False, deterministic_meal_time=False,
+                 deterministic_meal_occurrence=False, use_custom_meal=False, custom_meal_num=3, custom_meal_size=1,
+                 update_seed_on_reset=False, source_dir=None, **kwargs):
         """
         patient_name must be 'adolescent#001' to 'adolescent#010',
         or 'adult#001' to 'adult#010', or 'child#001' to 'child#010'
@@ -161,6 +162,7 @@ class DeepSACT1DEnv(gym.Env):
         self.time_std = time_std
         self.harrison_benedict = harrison_benedict
         self.restricted_carb = restricted_carb
+        self.meal_duration = meal_duration
         self.unrealistic = unrealistic
         self.deterministic_meal_size = deterministic_meal_size
         self.deterministic_meal_time = deterministic_meal_time
@@ -407,7 +409,8 @@ class DeepSACT1DEnv(gym.Env):
                     self.env.scenario = SemiRandomBalancedScenario(bw=self.bw, start_time=self.start_time,
                                                                    seed=self.seeds['scenario'],
                                                                    time_std_multiplier=self.time_std, kind=self.kind,
-                                                                   harrison_benedict=self.harrison_benedict)
+                                                                   harrison_benedict=self.harrison_benedict,
+                                                                   meal_duration=self.meal_duration)
                 self.env.sensor.seed = self.seeds['sensor']
                 self.env.scenario.seed = self.seeds['scenario']
                 self.env.scenario.day = 0
@@ -457,14 +460,16 @@ class DeepSACT1DEnv(gym.Env):
                                               harrison_benedict=self.harrison_benedict, unrealistic=self.unrealistic,
                                               deterministic_meal_size=self.deterministic_meal_size,
                                               deterministic_meal_time=self.deterministic_meal_time,
-                                              deterministic_meal_occurrence=self.deterministic_meal_occurrence)
+                                              deterministic_meal_occurrence=self.deterministic_meal_occurrence,
+                                              meal_duration=self.meal_duration)
         elif self.use_custom_meal:
             scenario = CustomBalancedScenario(bw=self.bw, start_time=self.start_time, seed=self.seeds['scenario'],
                                               num_meals=self.custom_meal_num, size_mult=self.custom_meal_size)
         else:
             scenario = SemiRandomBalancedScenario(bw=self.bw, start_time=self.start_time, seed=self.seeds['scenario'],
                                                   time_std_multiplier=self.time_std, kind=self.kind,
-                                                  harrison_benedict=self.harrison_benedict)
+                                                  harrison_benedict=self.harrison_benedict,
+                                                  meal_duration=self.meal_duration)
         pump = InsulinPump.withName('Insulet', self.insulin_pump_para_file)
         self.env = _T1DSimEnv(patient=patient,
                               sensor=sensor,
