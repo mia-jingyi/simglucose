@@ -28,9 +28,11 @@ logger = logging.getLogger(__name__)
 
 
 class T1DSimEnv(object):
+    # TODO: in process of removing risk_diff default and moving to platform
     def __init__(self, patient, sensor, pump, scenario, sample_time=None, model=None, model_device=None, source_dir=None):
         self.patient = patient
         self.state = self.patient.state  # caching for model usage
+        # TODO: make more general
         norm_params_full = joblib.load('{}/simglucose/params/adult_001_std_params.pkl'.format(source_dir))
         # the above PKL file defines mu and sigma for a 17D vector (13D ground truth state + CHO + BG + CGM + insulin)
         new_mask = [True for _ in range(13)] + [True, False, False, True]  # throwing out BG and CGM
@@ -87,7 +89,7 @@ class T1DSimEnv(object):
                 insulin += tmp_insulin / self.sample_time
                 self.patient._t += 1  # copying mini-step of 1 minute
             # Make state
-            state = np.concatenate(([self.state, [CHO, insulin]]))
+            state = np.concatenate([self.state, [CHO, insulin]])
             # standard scaling because there are no outliers.
             norm_state = ((state-self.norm_params['mu'])/self.norm_params['std']).reshape(1, -1)
             tensor_state = torch.from_numpy(norm_state).float().to(self.model_device)
@@ -133,7 +135,7 @@ class T1DSimEnv(object):
         # window_size = int(60 / self.sample_time)
         # BG_last_hour = self.CGM_hist[-window_size:]
         reward = reward_fun(bg_hist=self.BG_hist, cgm_hist=self.CGM_hist, insulin_hist=self.insulin_hist,
-                            risk_hist=self.risk_hist, magni_risk_hist=self.magni_risk_hist)
+                            risk_hist=self.risk_hist)
         # done = BG < 70 or BG > 350
         done = BG < 40 or BG > 350
         obs = Observation(CGM=CGM)

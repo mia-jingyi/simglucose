@@ -187,6 +187,8 @@ class DeepSACT1DEnv(gym.Env):
         return self._step(action)
 
     def _step(self, action, use_action_scale=True):
+        if type(action) is np.ndarray:
+            action = action.item()
         if use_action_scale:
             action = self.translate(action)
         if self.residual_basal:
@@ -208,7 +210,7 @@ class DeepSACT1DEnv(gym.Env):
                 if self.last_cf > self.cooldown:
                     bolus += hyper_correct - hypo_correct
                 bolus += carb_correct
-                action += bolus / 5  # bolus per min
+                action += bolus / 5.  # bolus per min
                 self.last_cf = 0
             self.last_cf += 5
         if self.residual_PID:
@@ -289,7 +291,7 @@ class DeepSACT1DEnv(gym.Env):
             if normalize:
                 pass  # already normalized
             if len(sin_time) < self.state_hist:
-                sin_time = np.concatenate((np.full(self.state_hist - len(sin_time) - 1), sin_time))
+                sin_time = np.concatenate((np.full(self.state_hist - len(sin_time), -1), sin_time))
             if len(cos_time) < self.state_hist:
                 cos_time = np.concatenate((np.full(self.state_hist - len(cos_time), -1), cos_time))
             return_arr.append(sin_time)
@@ -304,7 +306,7 @@ class DeepSACT1DEnv(gym.Env):
         if self.meal:
             cho = self.env.CHO_hist[-self.state_hist:]
             if normalize:
-                cho = np.array(cho) / 20.
+                cho = np.array(cho)/20.
             if len(cho) < self.state_hist:
                 cho = np.concatenate((np.full(self.state_hist - len(cho), -1), cho))
             return_arr.append(cho)
@@ -323,14 +325,14 @@ class DeepSACT1DEnv(gym.Env):
                 iob = self.calculate_iob()
                 cgm = self.env.CGM_hist[-1]
                 if normalize:
-                    state = np.array([cgm/400, iob*10])
+                    state = np.array([cgm/400., iob*10])
                 else:
                     state = np.array([cgm, iob])
             else:
                 state = self.env.patient.state
             if self.meal_announce is not None:
                 meal_val, meal_time = self.announce_meal()
-                state = np.array((state, np.array([meal_val, meal_time])))
+                state = np.concatenate((state, np.array([meal_val, meal_time])))
             if normalize:
                 # just the average of 2 days of adult#001, these values are patient-specific
                 # every patient has different value ranges
